@@ -59,4 +59,18 @@ public class NotificationConstants {
         static final String SUBJECT_TOKEN_INFO = "subject_token_info";
         static final String ISSUED_TOKEN_INFO = "issued_token_info";
     }
+
+    /**
+     * Constant class used to define SSL context related constants.
+     */
+    public static final class SSLProperties {
+
+        public static final String TRUSTSTORE = "javax.net.ssl.trustStore";
+        public static final String TRUSTSTORE_PASSWORD = "javax.net.ssl.trustStorePassword";
+        public static final String TRUSTSTORE_TYPE = "javax.net.ssl.trustStoreType";
+
+        private SSLProperties() {
+
+        }
+    }
 }

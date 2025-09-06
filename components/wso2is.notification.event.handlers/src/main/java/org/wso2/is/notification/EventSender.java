@@ -27,17 +27,29 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.wso2.is.notification.event.Event;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.cert.CertificateException;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 
 /**
  * Utility class to push events.
@@ -76,6 +88,42 @@ public class EventSender {
     }
 
     /**
+     * This method is used to create a custom SSL Context instead of using the default
+     *
+     * @return The custom SSLContext
+     * @throws KeyStoreException Throws a KeyStoreException
+     * @throws NoSuchAlgorithmException Throws a NoSuchAlgorithmException
+     * @throws CertificateException Throws a CertificateException
+     * @throws IOException Throws a IOException
+     * @throws KeyManagementException Throws a KeyManagementException
+     */
+    private static SSLContext createCustomSSLContext()
+            throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException,
+            KeyManagementException {
+        String trustStorePath = System.getProperty(NotificationConstants.SSLProperties.TRUSTSTORE);
+        String trustStorePassword = System.getProperty(NotificationConstants.SSLProperties.TRUSTSTORE_PASSWORD);
+        String trustStoreType = System.getProperty(NotificationConstants.SSLProperties.TRUSTSTORE_TYPE);
+        if (trustStorePath == null || trustStorePassword == null) {
+            throw new IllegalArgumentException("Truststore properties are not properly set.");
+        }
+        if (trustStoreType == null) {
+            trustStoreType = "JKS";
+        }
+        KeyStore trustStore = KeyStore.getInstance(trustStoreType);
+        // Load Truststore
+        try (InputStream is = Files.newInputStream(Paths.get(trustStorePath))) {
+            trustStore.load(is, trustStorePassword.toCharArray());
+        }
+        // Initialize TrustManagerFactory
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        tmf.init(trustStore);
+        // Create SSL context
+        SSLContext context = SSLContext.getInstance("TLS");
+        context.init(null, tmf.getTrustManagers(), new SecureRandom());
+        return context;
+    }
+
+    /**
      * Runnable Thread to send Event
      */
     public static class EventRunner implements Runnable {
@@ -85,6 +133,18 @@ public class EventSender {
         private String password;
         private Map<String, String> headers;
         private Event event;
+        private static final SSLContext customSSLContext;
+
+        static {
+            SSLContext context = null;
+            try {
+                context = createCustomSSLContext();
+            } catch (KeyStoreException | IOException | NoSuchAlgorithmException |
+                    CertificateException | KeyManagementException e) {
+                log.error("Failed to initialize custom SSL context during static init", e);
+            }
+            customSSLContext = context;
+        }
 
         public EventRunner(String notificationEndpoint, String username, String password,
                            Map<String, String> headers, Event event) {
@@ -99,15 +159,22 @@ public class EventSender {
         @Override
         public void run() {
             String hostNameVerifier = System.getProperty("httpclient.hostnameVerifier");
-            String disableHostnameVerification = System.getProperty("org.opensaml.httpclient.https" +
-                    ".disableHostnameVerification");
-            CloseableHttpClient closeableHttpClient;
-            if (Boolean.parseBoolean(disableHostnameVerification) || (hostNameVerifier != null
-                    && hostNameVerifier.equals("AllowAll"))) {
-                closeableHttpClient = HttpClientBuilder.create()
-                        .setHostnameVerifier(new AllowAllHostnameVerifier()).useSystemProperties().build();
+            String disableHostnameVerification = System.getProperty(
+                    "org.opensaml.httpclient.https.disableHostnameVerification");
+            CloseableHttpClient closeableHttpClient = null;
+            if (Boolean.parseBoolean(disableHostnameVerification) || "AllowAll".equals(hostNameVerifier)) {
+                if (customSSLContext != null) {
+                    SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(customSSLContext,
+                            new AllowAllHostnameVerifier());
+                    closeableHttpClient = HttpClientBuilder.create().setSSLSocketFactory(sslSocketFactory)
+                            .setHostnameVerifier(new AllowAllHostnameVerifier()).useSystemProperties().build();
+                }
             } else {
-                closeableHttpClient = HttpClientBuilder.create().useSystemProperties().build();
+                if (customSSLContext != null) {
+                    SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(customSSLContext);
+                    closeableHttpClient = HttpClientBuilder.create().setSSLSocketFactory(sslSocketFactory)
+                            .useSystemProperties().build();
+                }
             }
             try {
                 HttpPost httpPost = new HttpPost(notificationEndpoint);
@@ -124,7 +191,11 @@ public class EventSender {
                 StringEntity requestEntity = new StringEntity(content);
                 requestEntity.setContentType("application/json");
                 httpPost.setEntity(requestEntity);
-                try (CloseableHttpResponse execute = closeableHttpClient.execute(httpPost)) {
+                if (closeableHttpClient != null) {
+                    try (CloseableHttpResponse execute = closeableHttpClient.execute(httpPost)) {
+                    }
+                } else {
+                    log.error("HttpClient is null. Cannot execute request.");
                 }
             } catch (IOException e) {
                 log.error("Error while sending Revocation Event to " + notificationEndpoint, e);
