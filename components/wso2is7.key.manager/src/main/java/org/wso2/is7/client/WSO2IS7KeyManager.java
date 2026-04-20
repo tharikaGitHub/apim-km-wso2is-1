@@ -144,6 +144,7 @@ public class WSO2IS7KeyManager extends AbstractKeyManager {
     private static final String IS7_ROLES_ENDPOINT = "is7_roles_endpoint";
     private static final String ENABLE_ROLES_CREATION = "enable_roles_creation";
     private static final String GRANT_TYPE_VALUE = "client_credentials";
+    private static final String SP_NAME_APPLICATION = "sp.name.application";
     private static final String DEFAULT_OAUTH_2_RESOURCE_NAME = "User-defined OAuth2 Resource";
     private static final String DEFAULT_OAUTH_2_RESOURCE_DESCRIPTION = "This is Default OAuth2 Resource Representation";
     private static final String SEARCH_REQUEST_SCHEMA = "urn:ietf:params:scim:api:messages:2.0:SearchRequest";
@@ -203,6 +204,13 @@ public class WSO2IS7KeyManager extends AbstractKeyManager {
         String applicationName = oAuthApplicationInfo.getClientName();
         String oauthClientName = oauthAppRequest.getOAuthApplicationInfo().getApplicationUUID();
         String keyType = (String) oAuthApplicationInfo.getParameter(ApplicationConstants.APP_KEY_TYPE);
+
+        // Added to use the application name as part of sp name instead of application UUID when specified
+        String applicationSpNameProp = System.getProperty(SP_NAME_APPLICATION);
+        boolean applicationSpName = Boolean.parseBoolean(applicationSpNameProp);
+        if (applicationSpName) {
+            oauthClientName = oAuthApplicationInfo.getClientName();
+        }
 
         if (StringUtils.isNotEmpty(applicationName) && StringUtils.isNotEmpty(keyType)) {
             String domain = UserCoreUtil.extractDomainFromName(userId);
@@ -428,6 +436,13 @@ public class WSO2IS7KeyManager extends AbstractKeyManager {
         String applicationName = oAuthApplicationInfo.getClientName();
         String oauthClientName = oAuthApplicationInfo.getApplicationUUID();
         String keyType = (String) oAuthApplicationInfo.getParameter(ApplicationConstants.APP_KEY_TYPE);
+
+        // Added to use the application name as part of sp name instead of application UUID when specified
+        String applicationSpNameProp = System.getProperty(SP_NAME_APPLICATION);
+        boolean applicationSpName = Boolean.parseBoolean(applicationSpNameProp);
+        if (applicationSpName) {
+            oauthClientName = oAuthApplicationInfo.getClientName();
+        }
 
         // First we attempt to get the tenant domain from the userID and if it is not possible, we fetch it
         // from the ThreadLocalCarbonContext
