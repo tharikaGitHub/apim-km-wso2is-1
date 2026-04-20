@@ -144,7 +144,6 @@ public class WSO2IS7KeyManager extends AbstractKeyManager {
     private static final String IS7_ROLES_ENDPOINT = "is7_roles_endpoint";
     private static final String ENABLE_ROLES_CREATION = "enable_roles_creation";
     private static final String GRANT_TYPE_VALUE = "client_credentials";
-    private static final String SP_NAME_APPLICATION = "sp.name.application";
     private static final String DEFAULT_OAUTH_2_RESOURCE_NAME = "User-defined OAuth2 Resource";
     private static final String DEFAULT_OAUTH_2_RESOURCE_DESCRIPTION = "This is Default OAuth2 Resource Representation";
     private static final String SEARCH_REQUEST_SCHEMA = "urn:ietf:params:scim:api:messages:2.0:SearchRequest";
@@ -152,6 +151,7 @@ public class WSO2IS7KeyManager extends AbstractKeyManager {
     private static final String REMOTE_CLAIM = "remoteClaim";
     private static final String LOCAL_CLAIM = "localClaim";
     private static final long USER_SCHEMA_CACHE_EXPIRY = 3600L;
+    private static final String applicationSpNameSystemProp = System.getProperty("sp.name.application");
 
     // Name of the default API Resource of WSO2 IS7 - which is used to contain scopes.
     private static final String DEFAULT_OAUTH_2_RESOURCE_IDENTIFIER = "User-defined-oauth2-resource";
@@ -206,9 +206,7 @@ public class WSO2IS7KeyManager extends AbstractKeyManager {
         String keyType = (String) oAuthApplicationInfo.getParameter(ApplicationConstants.APP_KEY_TYPE);
 
         // Added to use the application name as part of sp name instead of application UUID when specified
-        String applicationSpNameProp = System.getProperty(SP_NAME_APPLICATION);
-        boolean applicationSpName = Boolean.parseBoolean(applicationSpNameProp);
-        if (applicationSpName) {
+        if (Boolean.parseBoolean(applicationSpNameSystemProp)) {
             oauthClientName = oAuthApplicationInfo.getClientName();
             if (log.isDebugEnabled() && oauthClientName != null) {
                 log.debug("Using application name " + oauthClientName
@@ -442,9 +440,7 @@ public class WSO2IS7KeyManager extends AbstractKeyManager {
         String keyType = (String) oAuthApplicationInfo.getParameter(ApplicationConstants.APP_KEY_TYPE);
 
         // Added to use the application name as part of sp name instead of application UUID when specified
-        String applicationSpNameProp = System.getProperty(SP_NAME_APPLICATION);
-        boolean applicationSpName = Boolean.parseBoolean(applicationSpNameProp);
-        if (applicationSpName) {
+        if (Boolean.parseBoolean(applicationSpNameSystemProp)) {
             oauthClientName = oAuthApplicationInfo.getClientName();
             if (log.isDebugEnabled() && oauthClientName != null) {
                 log.debug("Using application name " + oauthClientName
