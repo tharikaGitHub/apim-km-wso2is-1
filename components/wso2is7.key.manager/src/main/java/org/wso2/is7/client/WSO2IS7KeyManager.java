@@ -210,6 +210,10 @@ public class WSO2IS7KeyManager extends AbstractKeyManager {
         boolean applicationSpName = Boolean.parseBoolean(applicationSpNameProp);
         if (applicationSpName) {
             oauthClientName = oAuthApplicationInfo.getClientName();
+            if (log.isDebugEnabled() && oauthClientName != null) {
+                log.debug("Using application name " + oauthClientName
+                                + " as Service Provider name for OAuth client creation");
+            }
         }
 
         if (StringUtils.isNotEmpty(applicationName) && StringUtils.isNotEmpty(keyType)) {
@@ -442,6 +446,10 @@ public class WSO2IS7KeyManager extends AbstractKeyManager {
         boolean applicationSpName = Boolean.parseBoolean(applicationSpNameProp);
         if (applicationSpName) {
             oauthClientName = oAuthApplicationInfo.getClientName();
+            if (log.isDebugEnabled() && oauthClientName != null) {
+                log.debug("Using application name " + oauthClientName
+                        + " as Service Provider name for OAuth client update");
+            }
         }
 
         // First we attempt to get the tenant domain from the userID and if it is not possible, we fetch it
